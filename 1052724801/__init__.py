@@ -84,8 +84,10 @@ if os.path.isfile(use_this_version):
     with open(use_this_version) as f:
         content = f.read().strip()
         if content == "NEW":
+            shutil.copy(NEW_CONF_PATH, CONF_PATH)
             load_module("new")
         elif content == "OLD":
+            shutil.copy(OLD_CONF_PATH, CONF_PATH)
             load_module("old")
 else:
     if not os.path.exists(USER_FILES):

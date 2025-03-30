@@ -52,6 +52,8 @@ def get_filter_dialog_output(
             parent_is_browser=parent_is_browser,
             values_as_list_or_dict=values_as_list_or_dict,
             windowtitle=windowtitle,
+            #max_items=None,
+            #prefill="",
             adjPos=adjPos,
             show_star=show_star,
             check_star=check_star,
@@ -59,6 +61,7 @@ def get_filter_dialog_output(
             show_prepend_minus_button=show_prepend_minus_button,
             check_prepend_minus_button=check_prepend_minus_button,
             show_run_search_on_exit=show_run_search_on_exit,
+            #do_run_search_on_exit=False,
             sort_vals=sort_vals,
             multi_selection_enabled=multi_selection_enabled,
             context=context,
@@ -118,10 +121,10 @@ def filter_dialog_and_overrides(
         context=context,
     )
     if not d:
-        return None, None, None
+        return None, None, None, None
     else:
         if d.sel_keys_list == value_for_all:
-            return d.sel_keys_list, "", False
+            return d.sel_keys_list, "", False, d.run_search_on_exit
         lineonly, _, override_add_star, negate = overrides()
         if d.just_returned_input_line_content:
             lineonly = True
@@ -136,7 +139,7 @@ def filter_dialog_and_overrides(
         out = prefix + out
         print(f"filter_dialog_and_overrides: out is --{out}--, type ist: --{type(out)}--")
         neg = True if (negate or d.neg) else False
-        return d.sel_keys_list, out, neg
+        return d.sel_keys_list, out, neg, d.run_search_on_exit
 
 
 def note_filter_helper(parent, col, remaining_sentence, prefixed_with_minus):
@@ -146,7 +149,7 @@ In a first step select the note type to search. After this you'll see a dialog t
 by {remaining_sentence}
 </span>
 """
-    note_type_list, fmt, neg = filter_dialog_and_overrides(
+    note_type_list, fmt, neg, run_search = filter_dialog_and_overrides(
         parent=parent,
         vals=["--All Note Types--"] + col.models.allNames(),
         value_for_all="--All Note Types--",
@@ -159,15 +162,15 @@ by {remaining_sentence}
         context="note",
     )
     note_type = note_type_list[0] if note_type_list else note_type_list
-    return note_type, fmt, neg
+    return note_type, fmt, neg, run_search
 
 
 def note__card(parent, col, prefixed_with_minus):
     remaining = "only if the note has multiple cards/card templates."
     # e.g. model = "Basic"; model_search_string = "note:Basic"; modelneg = False
-    model, model_search_string, modelneg = note_filter_helper(parent, col, remaining, prefixed_with_minus)
+    model, model_search_string, modelneg, run_search = note_filter_helper(parent, col, remaining, prefixed_with_minus)
     if not model:
-        return None, None, None
+        return None, None, None, None
 
     infotext = """
 <span>
@@ -207,7 +210,7 @@ card template/type/name you want to search.
         cardneg = False
     else:
         # e.g. card = "Card 6"; card_search_string = "card:Card 6"; cardneg = False
-        card_list, card_search_string, cardneg = filter_dialog_and_overrides(
+        card_list, card_search_string, cardneg, run_search = filter_dialog_and_overrides(
             parent=parent,
             vals=vals,
             value_for_all="--All the Card Types--",
@@ -220,7 +223,7 @@ card template/type/name you want to search.
             context="card",
         )
         if not card_list:
-            return None, None, None
+            return None, None, None, None
         card = card_list[0]
 
     # quote if needed
@@ -239,14 +242,14 @@ add&nbsp;&nbsp;card:2&nbsp;&nbsp;
 """
         tooltip(msg, parent=parent)  # default is period=3000
     # parent.button_helper(out, False)
-    return out, 0, cardneg
+    return out, 0, cardneg, run_search
 
 
 def note__field(parent, col, prefixed_with_minus):
     remaining = "field (if the note has more than one field)."
-    model, model_search_string, modelneg = note_filter_helper(parent, col, remaining, prefixed_with_minus)
+    model, model_search_string, modelneg, run_search = note_filter_helper(parent, col, remaining, prefixed_with_minus)
     if not model:
-        return None, None, None
+        return None, None, None, None
 
     infotext = """
 <span>
@@ -273,7 +276,7 @@ add some text to limit to a certain term.
         field_search_string = ""
         fieldneg = False
     else:
-        field_list, field_search_string, fieldneg = filter_dialog_and_overrides(
+        field_list, field_search_string, fieldneg, run_search = filter_dialog_and_overrides(
             parent=parent,
             vals=fnames,
             value_for_all=value_for_all,
@@ -286,7 +289,7 @@ add some text to limit to a certain term.
             context="field",
         )
         if not field_list:
-            return None, None, None
+            return None, None, None, None
         field = field_list[0]
 
     posback = 0
@@ -304,7 +307,7 @@ add some text to limit to a certain term.
     maybe_space = " " if model_search_string and field_search_string else ""
     out = model_search_string + maybe_space + field_search_string
 
-    return out, posback, fieldneg
+    return out, posback, fieldneg, run_search
 
 
 def note__field__card__helper(parent, col, term, before, after, chars_to_del, prefixed_with_minus):
@@ -314,9 +317,9 @@ def note__field__card__helper(parent, col, term, before, after, chars_to_del, pr
     But they seem to work so I'm not touching them.
     """
     if term == "dnf:":
-        out, tomove, prefixed_with_minus = note__field(parent, col, prefixed_with_minus)
+        out, tomove, prefixed_with_minus, run_search = note__field(parent, col, prefixed_with_minus)
     else:  # "dnc:"
-        out, tomove, prefixed_with_minus = note__card(parent, col, prefixed_with_minus)
+        out, tomove, prefixed_with_minus, run_search = note__card(parent, col, prefixed_with_minus)
     if out:
         spaces = maybe_add_spaced_between(before, chars_to_del)
         if prefixed_with_minus:
@@ -330,9 +333,9 @@ def note__field__card__helper(parent, col, term, before, after, chars_to_del, pr
         #  for dnf: the user needs to type in the searchstring for the field
         #  for dnc: the user would usually add additional search terms such as is:
         print(f"note__field__card__helper: new_text is ||{new_text}||")
-        return (new_text, newpos, False)
+        return new_text, newpos, run_search
     else:
-        return None, None, None
+        return None, None, run_search
 
 
 def get_date_range(parent, col, search_operator, before, after, chars_to_del, prefixed_with_minus):
@@ -348,7 +351,7 @@ def get_date_range(parent, col, search_operator, before, after, chars_to_del, pr
         parent, col, search_operator, prefixed_with_minus, test_lower, test_upper, test_custom_datetime
     )
     if not success:
-        return (None, None, None)
+        return None, None, None
     else:
         _, override_autosearch_default, _, _ = overrides()
         if override_autosearch_default:
@@ -359,7 +362,7 @@ def get_date_range(parent, col, search_operator, before, after, chars_to_del, pr
         if chars_to_del == len(before):  # whole before will be deleted -> no leading space required
             spaces = ""
         newpos = len(before[:-chars_to_del] + spaces + searchtext)
-        return (new_text, newpos, TriggerSearchAfter)
+        return new_text, newpos, TriggerSearchAfter
 
 
 def matches_search_operator(before, term):
@@ -409,7 +412,7 @@ def regex_replacements(before, after):
                     before = before.replace(abbrev, repl)
                     new_text = before + after
                     newpos = len(before + after)
-                    return (new_text, newpos, False)  # False here means: do not trigger search
+                    return new_text, newpos, False  # False here means: do not trigger search
 
     """
     e.g.:
@@ -460,7 +463,7 @@ def regex_replacements(before, after):
                 if number_replacements:
                     new_text = before + after
                     newpos = len(before + after)
-                    return (new_text, newpos, False)
+                    return new_text, newpos, False
 
 
 def onSearchEditTextChange(
@@ -470,7 +473,8 @@ def onSearchEditTextChange(
     parent: Browser, filtered_deck.FilteredDeckConfigDialog
     """
     col = parent.col
-
+    TriggerSearchAfter = False
+    
     if cursorpos is None:
         before = input_text
         after = ""
@@ -481,11 +485,10 @@ def onSearchEditTextChange(
     did_regex_replacements = regex_replacements(before, after)
     if did_regex_replacements:
         # new_text, newpos, do_not_trigger_search
-        return (did_regex_replacements[0], did_regex_replacements[1], False)
+        return did_regex_replacements[0], did_regex_replacements[1], TriggerSearchAfter
 
     if after and not after.startswith(" "):
         after = " " + after
-    TriggerSearchAfter = False
 
     vals = {}
 
@@ -493,6 +496,7 @@ def onSearchEditTextChange(
         if before[-4:] == abbrev:
             prefixed_with_minus = True if minus_precedes_search_operator(before, abbrev) else False
             char_to_del = len(abbrev) + 1 if minus_precedes_search_operator else len(abbrev)
+            # new_text, newpos, run_search
             return note__field__card__helper(parent, col, abbrev, before, after, char_to_del, prefixed_with_minus)
 
     for dialog_abbrev, anki_search_operator in {
@@ -807,7 +811,7 @@ which doesn't limit your search. You must put your search term between the "**".
         }
 
     if not vals:
-        return (None, None, None)
+        return None, None, None
 
     d = get_filter_dialog_output(
         parent=parent,
@@ -825,7 +829,7 @@ which doesn't limit your search. You must put your search term between the "**".
         context=vals.get("context"),
     )
     if not d:
-        return (None, None, None)
+        return None, None, None
     else:
         if d.tooltip_after_exit_for_parent:
             tooltip(d.tooltip_after_exit_for_parent, period=6000)
@@ -857,7 +861,7 @@ which doesn't limit your search. You must put your search term between the "**".
             is_exclusion = False  # - doesn't really make sense here
             new_text = already_in_line + ("-" if is_exclusion else "") + mysearch + after
             new_pos = len(already_in_line + ("-" if is_exclusion else "") + mysearch)
-            return (new_text, new_pos, TriggerSearchAfter)
+            return new_text, new_pos, TriggerSearchAfter
         if vals["dict_for_dialog"] == "ffn":
             field = d.sel_value_from_dict[0]
             mynote = d.sel_value_from_dict[1]
@@ -964,7 +968,7 @@ which doesn't limit your search. You must put your search term between the "**".
                 merged = f"-{merged}"
         new_text = befmod + merged + after
         newpos = len(befmod + merged)
-        return (new_text, newpos, TriggerSearchAfter)
+        return new_text, newpos, TriggerSearchAfter
 
 
 if not in_full_anki_with_gui:

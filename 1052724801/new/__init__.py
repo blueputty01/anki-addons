@@ -115,6 +115,9 @@ in gui_config_dialog/collapsible_section_for_qwidget. The original copyright and
 
 
 def main():
+    from .config_update import maybe_update_config
+    maybe_update_config()
+
     from . import browser_shortcuts_for_insert_dialog
     from . import config
     from . import ui_browser
@@ -125,10 +128,6 @@ def main():
     from aqt import gui_hooks
 
     gui_hooks.profile_did_open.append(show_test_config_dialogs_on_startup)
-
-    from .config_update import maybe_update_config
-
-    maybe_update_config()
 
 
 try:

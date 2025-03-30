@@ -122,31 +122,38 @@ def update_nested_dict(nested_dict, keys, new_value):
 
 
 def maybe_update_config():
-    old_conf = mw.addonManager.getConfig(__name__)
-    if not old_conf:
-        return
-
-    if all([isinstance(val, dict) for val in old_conf.values()]):
-        # then the new config is already used: fresh install or already updated ...
-        return
-
-
     # since 3.9 __file__ is always an abspath, see
     # https://stackoverflow.com/questions/7116889/is-module-file-attribute-absolute-or-relative
     ## these two lines don't work in the version with new and old version from 2025-02
     # addon_folder_name = os.path.basename(os.path.dirname(__file__))
     # new_conf = get_default_conf_for_this_addon(addon_folder_name)
-    ## old-new
     this_folder = os.path.dirname(__file__)
     new_conf = get_default_conf_for_this_addon__old_new(this_folder)
 
+    try:
+        old_conf = mw.addonManager.getConfig(__name__)
+    except:
+        # this shouldn't happen. So write default config
+        msg = "BetterSearch addon: default config written because no config was found: except"
+        # showInfo(msg)
+        print(msg)
+    else:
+        if not old_conf:
+            # this shouldn't happen. So write default config
+            msg = "BetterSearch addon: default config written because no config was found: not old_conf"
+            # showInfo(msg)
+            print(msg)
+            old_conf = None
 
-
-    for old_key, new_key in old_conf_up_to_202303_to_new_conf_dict.items():
-        old_val = old_conf.get(old_key)
-        if old_val:
-            update_nested_dict(new_conf, new_key, old_val)
+        if old_conf:
+            if all([isinstance(val, dict) for val in old_conf.values()]):
+                # then the new config is already used: fresh install or already updated ...
+                return
+            for old_key, new_key in old_conf_up_to_202303_to_new_conf_dict.items():
+                old_val = old_conf.get(old_key)
+                if old_val:
+                    update_nested_dict(new_conf, new_key, old_val)
+            msg = "You've installed an update for the addon 'BetterSearch'. The config has changed. Check it."
+            showInfo(msg)
 
     mw.addonManager.writeConfig(__name__, new_conf)
-    msg = "You've installed an update for the addon 'BetterSearch'. The config has changed. Check it."
-    showInfo(msg)

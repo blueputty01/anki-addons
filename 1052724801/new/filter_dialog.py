@@ -45,6 +45,8 @@ syntax for the default search method:
 
 """
 
+import platform
+
 import aqt
 from aqt.qt import (
     QAbstractItemView,
@@ -113,6 +115,7 @@ class FilterDialog(QDialog):
         show_prepend_minus_button=True,
         check_prepend_minus_button=False,
         show_run_search_on_exit=True,
+        do_run_search_on_exit=False,
         sort_vals=True,
         multi_selection_enabled=True,
         context="",
@@ -121,6 +124,20 @@ class FilterDialog(QDialog):
         aqt.mw.garbage_collect_on_dialog_finish(self)
         self.parent = parent
         self.parent_is_browser = parent_is_browser
+        if platform.system() == "Darwin" and self.parent_browser_is_full_screen():
+            # this doesn't help - on the contrary it seems to prevent keyboard input?
+            # self.setWindowFlags(self.windowFlags() | Qt.WindowType.Sheet)
+            # this has no effect apparently:
+            # self.setWindowFlags(self.windowFlags() | Qt.WindowType.Tool)
+            # if the filter dialog moves in browser full screen mode on MacOS this should
+            # at least move it back so that there's "just" some screen/view movement = flickering
+            self.setWindowModality(Qt.WindowModality.WindowModal)
+            ## this doesn't help either
+            # if self.parent and self.parent.windowHandle():
+            #     parent_screen = self.parent.windowHandle().screen()
+            #     if self.windowHandle():
+            #         self.windowHandle().setScreen(parent_screen)
+                 
         self.max_items = gc(["filter dialog", "filter dialog: lines shown"], 500) if max_items is None else max_items
         self.adjustposition = adjPos
         self.show_star = show_star
@@ -128,6 +145,7 @@ class FilterDialog(QDialog):
         self.show_prepend_minus_button = show_prepend_minus_button
         self.check_prepend_minus_button = check_prepend_minus_button
         self.show_run_search_on_exit = show_run_search_on_exit
+        self.do_run_search_on_exit = do_run_search_on_exit
         self.run_search_on_exit = False
         self.info_text_top = infotext
         self.context = context  # windows size, restore last input
@@ -148,9 +166,14 @@ class FilterDialog(QDialog):
         self.startswith_sign = gc(["filter dialog", "filter dialog: startswith character (max one char)"], "^")
         self.initUI()
         if self.adjustposition:
+            # this doesn't seem to affect the browser full screen problem on macos.
             self.moveWindow()
         if prefill:
             self.input_line.setText(prefill)
+
+    def parent_browser_is_full_screen(self):
+        if self.parent_is_browser:
+            return bool(self.parent.windowState() & Qt.WindowState.WindowFullScreen)
 
     def initUI(self):
         vlay = QVBoxLayout()
@@ -180,6 +203,12 @@ class FilterDialog(QDialog):
         vlay.addWidget(self.list_widget)
 
         self.label_not_all_shown = QLabel()
+
+        self.just_started = True
+        if len(self.matched_items_in_list_widget) > self.max_items:
+            text = f"""only showing {self.max_items} of {len(self.matched_items_in_list_widget)} matching entries. Type in more characters to narrow down the search"""
+            self.label_not_all_shown.setText(text)
+
         vlay.addWidget(self.label_not_all_shown)
 
         if gc(["filter dialog", "filter dialog: show info text about endwith/exclude/start char at bottom"]):
@@ -221,7 +250,9 @@ class FilterDialog(QDialog):
 
         self.button_run_search_on_exit = QCheckBox("run search after closing dialog")
         if self.show_run_search_on_exit:
-            if gc(["filter dialog automatically search on close", self.context]):
+            if self.do_run_search_on_exit:
+                self.button_run_search_on_exit.setChecked(True)
+            elif gc(["filter dialog automatically search on close", self.context]):
                 self.button_run_search_on_exit.setChecked(True)
         else:
             self.button_run_search_on_exit.setVisible(False)
@@ -252,7 +283,6 @@ class FilterDialog(QDialog):
         self.list_widget.itemDoubleClicked.connect(self.item_doubleclicked)
         self.list_widget.installEventFilter(self)
         self.input_line.setFocus()
-        self.maybe_show_warning_about_hidden_tags()
 
     def moveWindow(self):
         if not self.parent_is_browser:
@@ -333,6 +363,9 @@ class FilterDialog(QDialog):
         self.maybe_show_warning_about_hidden_tags()
 
     def maybe_show_warning_about_hidden_tags(self):
+        if self.just_started:  # 2025-03: workaround for macos browser in fullscreen mode
+            self.just_started = False
+            return
         if len(self.matched_items_in_list_widget) > self.max_items:
             text = f"""only showing {self.max_items} of {len(self.matched_items_in_list_widget)} matching entries. Type in more characters to narrow down the search"""
             self.label_not_all_shown.setText(text)

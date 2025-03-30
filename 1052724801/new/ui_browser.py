@@ -92,13 +92,19 @@ def search_history_helper(browser):
         parent_is_browser=True,
         values_as_list_or_dict=processed_list,
         windowtitle="Filter Anki Browser Search History",
+        #max_items=None,
+        #prefill="",
         adjPos=False,
         show_star=False,
         check_star=False,
         infotext=False,
         show_prepend_minus_button=False,
         check_prepend_minus_button=False,
+        #show_run_search_on_exit=True,
+        #do_run_search_on_exit=False,
+        #sort_vals=True,
         multi_selection_enabled=False,
+        #context="",
     )
     if d.exec():
         new = d.sel_keys_list[0].replace("\n", " ")

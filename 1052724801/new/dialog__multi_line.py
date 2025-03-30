@@ -242,13 +242,19 @@ class SearchBox(QDialog):
             parent_is_browser=True,
             values_as_list_or_dict=processed_list,
             windowtitle="Filter Anki Browser Search History",
+            #max_items=,
+            #prefill=,
             adjPos=False,
             show_star=False,
             check_star=False,
             infotext=False,
             show_prepend_minus_button=False,
             check_prepend_minus_button=False,
+            #show_run_search_on_exit=,
+            #do_run_search_on_exit=,
+            #sort_vals=,
             multi_selection_enabled=False,
+            #context=,
         )
         if d.exec():
             new = split_to_multiline(d.sel_keys_list[0])
