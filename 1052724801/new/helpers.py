@@ -1,5 +1,7 @@
 from .anki_version_detection import anki_point_version
-from .config import gc
+from . import in_full_anki_with_gui
+if in_full_anki_with_gui:
+    from .config import gc
 
 
 def cardnames(col):
@@ -37,6 +39,8 @@ def is_values():
         "is:review",
         "is:suspended",
         "is:buried",
+        "is:buried-sibling",
+        "is:buried-manually",
         "is:learn is:review",
         "-is:learn is:review",
         "is:learn -is:review",
@@ -51,6 +55,8 @@ def is_values_with_explanations():
         "is:review (reviews (both due and not due) and lapsed cards)": "is:review",
         "is:suspended (cards that have been manually suspended)": "is:suspended",
         "is:buried (cards that have been buried, either automatically (siblings) or manually)": "is:buried",
+        "is:buried-sibling (cards that have been buried automatically)": "is:buried-sibling",
+        "is:buried-manually (cards that have been manually buried)": "is:buried-manually",
         "is:learn is:review (cards that have lapsed and are awaiting relearning)": "is:learn is:review",
         "-is:learn is:review (review cards, not including lapsed cards)": "-is:learn is:review",
         "is:learn -is:review (cards that are in learning for the first time)": "is:learn -is:review",
@@ -92,7 +98,7 @@ def fieldnames(col):
     return list(fieldnames)
 
 
-details_about_searching_fields = """
+details_about_searching_fields_string = """
 When searching fields keep in mind that searching on fields requires an 'exact match' by default.
 <br>Here are some examples from the manual:
  <table border="0" style="border-collapse: collapse; width: 100%;">
@@ -254,6 +260,7 @@ def maybe_add_spaced_between(before, insert_space_at_pos_in_old):
     return spacing
 
 
-def emc(s):  # escape some metachars, relevant for search, see rslib
+def escape_metachars(s):  # escape some metachars, relevant for search, see rslib
     # Anki also escapes _ in tags - e.g. click a tag in the left sidebar
-    return s.replace("*", "\\*").replace("_", "\\_")
+    # don't include "\":  in Anki   tag:\*a\_\(a   gets rewritten to   "tag:\*a\_(a"
+    return s.replace("\\", "\\\\").replace("*", "\\*").replace("_", "\\_")

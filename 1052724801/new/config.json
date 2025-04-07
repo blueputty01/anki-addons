@@ -15,7 +15,8 @@
         "shortcut - focus search box and prop dialog": "",
         "shortcut - focus search box and tag selector dialog": "",
         "shortcut - focus search box and tag/deck selector dialog": "",
-        "shortcut - select entry from history in fuzzy dialog": "Ctrl+Shift+H, h"
+        "shortcut - select entry from history in fuzzy dialog": "Ctrl+Shift+H, h",
+        "shortcut - select entry from saved searches in fuzzy dialog": "Ctrl+Shift+H, f"
     },
     "custom search operators for custom filter dialogs": {
         "custom tag&deck string 1": "xx",
@@ -40,11 +41,12 @@
         "filter dialog: typing this restores inputline content from last time": "qq"
     },
     "filter dialog automatically search on close": {
+        "Browser history": true,
+        "Browser saved searches": true,
+        "Date Dialogs": false,
         "card": false,
         "card_from_note_cfn": false,
-        "Date Dialogs": false,
         "deck": false,
-        "dnc": false,
         "field": false,
         "field_from_note_ffn": false,
         "flag": false,
@@ -62,6 +64,9 @@
         "Multiline Dialog: Shortcut inside: Open History": "Ctrl+Shift+H, h",
         "Multiline Dialog: show Button Bar": true,
         "Multiline Dialog: use bigger typewriter font": true
+    },
+    "modifier keys": {
+        "modifier to trigger search (irrespective of general config)": "Ctrl"
     },
     "open filter dialog after typing these search operators": {
         "modify_card": true,

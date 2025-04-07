@@ -159,6 +159,7 @@ class ComboReplacer(QPlainTextEdit):
             include_filtered_in_deck=True,
             input_text=self.toPlainText(),
             cursorpos=pos,
+            test_input=None,
         )
         if newtext != None:
             self.setPlainText(newtext)

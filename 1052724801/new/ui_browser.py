@@ -82,16 +82,23 @@ def open_multiline_searchwindow(browser):
             browser.onSearchActivated()
 
 
-def search_history_helper(browser):
-    # self is browser
-    # similar to method from dialog__multi_line
-    hist_list = browser.mw.pm.profile["searchHistory"]
-    processed_list = [split_to_multiline(e) for e in hist_list]
+def helper(browser, kind):
+    if kind == "Browser history":
+        # similar to method from dialog__multi_line
+        hist_list = browser.mw.pm.profile["searchHistory"]
+        candidates_list = [split_to_multiline(e) for e in hist_list]
+        title = "Filter Anki Browser Search History"
+    elif kind == "Browser saved searches":
+        candidates = browser.col.get_config("savedFilters", {})  # browser.sidebar._saved_searches_key
+        candidates_list = [f"{label}----{term}" for label, term in candidates.items()]
+        title = "Filter Anki Browser Saved Searches"
+    else:
+        return
     d = FilterDialog(
         parent=browser,
         parent_is_browser=True,
-        values_as_list_or_dict=processed_list,
-        windowtitle="Filter Anki Browser Search History",
+        values_as_list_or_dict=candidates_list,
+        windowtitle=title,
         #max_items=None,
         #prefill="",
         adjPos=False,
@@ -104,10 +111,14 @@ def search_history_helper(browser):
         #do_run_search_on_exit=False,
         #sort_vals=True,
         multi_selection_enabled=False,
-        #context="",
+        context=kind,
     )
     if d.exec():
-        new = d.sel_keys_list[0].replace("\n", " ")
+        if kind == "Browser history":
+            new = d.sel_keys_list[0].replace("\n", " ")
+        elif kind == "Browser saved searches":
+            # new = d.sel_keys_list[0].split("\n")[1]
+            new = d.sel_keys_list[0].split("----")[1]
         le = browser.form.searchEdit.lineEdit()
         le.setText(new)
         browser.onSearchActivated()
@@ -158,7 +169,15 @@ def setup_browser_menu(self):
     if cut:
         action.setShortcut(QKeySequence(cut))
     bs_menu.addAction(action)
-    action.triggered.connect(lambda _, b=self: search_history_helper(b))
+    action.triggered.connect(lambda _, b=self: helper(b, "Browser history"))
+
+    cut = gc(["browser shortcuts", "shortcut - select entry from saved searches in fuzzy dialog"])
+    action = QAction(self)
+    action.setText("Select entry from saved searches")
+    if cut:
+        action.setShortcut(QKeySequence(cut))
+    bs_menu.addAction(action)
+    action.triggered.connect(lambda _, b=self: helper(b, "Browser saved searches"))
 
     bs_menu.addSeparator()
 

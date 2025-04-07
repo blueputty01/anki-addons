@@ -22,7 +22,13 @@ def metadown():
     return mw.app.keyboardModifiers() & Qt.KeyboardModifier.MetaModifier
 
 
-conf_to_key = {"Shift": shiftdown, "Ctrl": ctrldown, "Alt": altdown, "Meta": metadown, "not set": lambda: None}
+conf_to_key = {
+    "Shift": shiftdown,
+    "Ctrl": ctrldown,
+    "Alt": altdown,
+    "Meta": metadown,
+    "not set": lambda: None
+}
 
 
 # UNUSED
@@ -35,24 +41,23 @@ def overrides():
     #   ALT  : negate
 
     lineonly = False
-    override_autosearch_default = False
+    force_run_search_after = False
     override_add_star = False
     negate = False
 
     lineonly = False
     if conf_to_key[gc(["modifier keys", "modifier for insert current text only"], "not set")]():
         lineonly = True
-    override_autosearch_default = False
-    if conf_to_key[gc(["modifier keys", "modifier for override autosearch default"], "not set")]():
-        override_autosearch_default = True
+    if conf_to_key[gc(["modifier keys", "modifier to trigger search (irrespective of general config)"], "not set")]():
+        force_run_search_after = True
     override_add_star = False
     if conf_to_key[gc(["modifier keys", "modifier for override add * default"], "not set")]():
         override_add_star = True
     negate = False
     if conf_to_key[gc(["modifier keys", "modifier for negate"], "not set")]():
         negate = True
-    # print(f"ctrl - lineonly is {lineonly}")
-    # print(f"shift - override_autosearch_default is {override_autosearch_default}")
-    # print(f"meta - override_add_star is {override_add_star}")
-    # print(f"alt - negate is {negate}")
-    return lineonly, override_autosearch_default, override_add_star, negate
+    # print(f"lineonly is {lineonly}")
+    # print(f"force_run_search_after is {force_run_search_after}")
+    # print(f"override_add_star is {override_add_star}")
+    # print(f"negate is {negate}")
+    return lineonly, force_run_search_after, override_add_star, negate

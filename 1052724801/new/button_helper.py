@@ -53,6 +53,7 @@ def text_change_helper(pte, parent, mw, col, before=None, before_pos=None, from_
         input_text=pte.toPlainText(),
         cursorpos=pos,
         from_button=from_button,
+        test_input=None,
     )
     if newtext != None:
         pte.setPlainText(newtext)

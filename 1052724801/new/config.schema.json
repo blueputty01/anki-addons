@@ -188,6 +188,21 @@
         "filter dialog automatically search on close": {
             "type": "object",
             "properties": {
+                "Browser history": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": ""
+                },
+                "Browser saved searches": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": ""
+                },
+                "Date Dialogs": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": ""
+                },
                 "card": {
                     "type": "boolean",
                     "default": false,
@@ -198,17 +213,7 @@
                     "default": false,
                     "description": ""
                 },
-                "Date Dialogs": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": ""
-                },
                 "deck": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": ""
-                },
-                "dnc": {
                     "type": "boolean",
                     "default": false,
                     "description": ""

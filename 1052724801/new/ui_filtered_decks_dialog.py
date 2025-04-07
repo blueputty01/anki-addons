@@ -51,6 +51,7 @@ def onDynSetupSearchEditTextChange(self, arg):
         include_filtered_in_deck=False,
         input_text=le.text(),
         cursorpos=pos,
+        test_input=None,
     )
     if newtext is None:
         return

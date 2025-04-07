@@ -158,9 +158,8 @@ class AnkiWebViewWrapper(AnkiWebView):
         # self.setHtml(help_as_webpage())
         pass
 
-# TODO maybe use https://stackoverflow.com/a/54888872 by eyllanesc
+# TODO maybe take inspiration from https://stackoverflow.com/a/54888872 by eyllanesc
 # Since its from Feb 26, 2019 its CC BY-SA 4.0 (see https://stackoverflow.com/help/licensing)
-# so that it should be useable
 # also possibly relevant: https://doc.qt.io/qtforpython-6/examples/example_webenginewidgets_tabbedbrowser.html
 
 class MiniHelpSearch(QDialog):

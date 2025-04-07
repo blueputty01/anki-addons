@@ -8,7 +8,6 @@ from aqt.qt import (
     QAction,
     QCursor,
     QMenu,
-    QPushButton,
 )
 from .button_helper import button_helper
 from .config import gc
@@ -16,11 +15,7 @@ from .hint import (
     browser_searchEdit_hint_shown,
 )
 from .onTextChange import onSearchEditTextChange
-from .ui_browser import (
-    search_history_helper,
-    open_multiline_searchwindow,
-)
-from .ui_browser_ComboReplacer import ComboReplacer
+
 
 
 def mysearch_41(self, card=None, search=None):
@@ -39,6 +34,7 @@ def onBrowserSearchEditTextChange(self, arg):
         include_filtered_in_deck=True,
         input_text=le.text(),
         cursorpos=pos,
+        test_input=None,
     )
     if newtext is None:
         return

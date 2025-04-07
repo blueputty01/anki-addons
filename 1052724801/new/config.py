@@ -54,8 +54,6 @@ the code inside these files was originally made by Rene Schallner for his
 https://github.com/renerocksai/sublimeless_zk. I made some changes to these files. For details
 see the top of the two aforementioned files. These files are licensed as GPLv3.
 
-The code from highlight_delegate.py is adopted from https://stackoverflow.com/a/53357083 (Copyright (c): 2018 eyllanesc, CC BY-SA 4.0)
-
 The code from auto-resizing-text-edit.py is adopted from https://github.com/cameel/auto-resizing-text-edit (Copyright (c): 2013 Kamil Śliwak, MIT License)
 
 the class CollapsibleSection in collapsible_section_for_qwidget.py is adopted from https://github.com/MichaelVoelkel/qt-collapsible-section/blob/master/Section.py ((c) 2016 Michael A. Voelkel - michael.alexander.voelkel@gmail.com).

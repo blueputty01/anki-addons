@@ -15,19 +15,32 @@ from .helpers import (
     # this is the order in helpers.py
     cardnames,
     decknames,
-    emc,
+    escape_metachars,
     tags,
     is_values,
     is_values_with_explanations,
     props,
     fieldnames,
-    details_about_searching_fields,
+    details_about_searching_fields_string,
     maybe_add_spaced_between,
 )
 
 
-class Object:
-    pass
+if not in_full_anki_with_gui:
+    class Object:
+        pass
+
+    # override some functions:
+    def tooltip(text, parent=None, period=3000):
+        print(text)
+
+    def overrides():
+        lineonly = False
+        force_run_search_after = False
+        override_add_star = False
+        negate = False
+        return lineonly, force_run_search_after, override_add_star, negate
+
 
 
 def get_filter_dialog_output(
@@ -45,6 +58,7 @@ def get_filter_dialog_output(
     sort_vals=True,
     multi_selection_enabled=True,
     context="",
+    dict_for_dialog=False,
 ):
     if in_full_anki_with_gui:
         d = FilterDialog(
@@ -67,30 +81,33 @@ def get_filter_dialog_output(
             context=context,
         )
         if d.exec():
+            d.dict_for_dialog = dict_for_dialog
             return d
         else:
             return None
     else:
-        if isinstance(input.test_output_key_list, list) and isinstance(
-            input.test_output_key_list[0], list
+        if isinstance(testinput.test_output_key_list, list) and isinstance(
+            testinput.test_output_key_list[0], list
         ):  # nested lists only for dnf:/dnc:
-            keylist = input.test_output_key_list[input.counter]
-            input.counter += 1
+            keylist = testinput.test_output_key_list[testinput.counter]
+            testinput.counter += 1
         else:
-            keylist = input.test_output_key_list
+            keylist = testinput.test_output_key_list
         d = Object()
         d.tooltip_after_exit_for_parent = None
-        # class input is defined in code for testing
-        d.just_returned_input_line_content = input.test_manual_regular_accept
-        d.inputline = (input.test_manual_just_line,)
+        # class testinput is defined in code for testing
+        d.just_returned_input_line_content = testinput.test_manual_regular_accept
+        d.inputline = testinput.test_manual_just_line
         d.sel_keys_list = keylist
-        d.sel_value_from_dict = input.test_output_sel_value_from_dict
+        d.sel_value_from_dict = testinput.test_output_sel_value_from_dict
+        d.run_search_on_exit = False
+        d.dict_for_dialog = dict_for_dialog
         d.neg = (
             check_prepend_minus_button
-            if not input.test_manual_override_in_dialog_for_neg
+            if not testinput.test_manual_override_in_dialog_for_neg
             else not check_prepend_minus_button
         )
-        d.addstar = input.test_manual_override_in_dialog_for_star
+        d.addstar = testinput.test_manual_override_in_dialog_for_star
         return d
 
 
@@ -125,7 +142,7 @@ def filter_dialog_and_overrides(
     else:
         if d.sel_keys_list == value_for_all:
             return d.sel_keys_list, "", False, d.run_search_on_exit
-        lineonly, _, override_add_star, negate = overrides()
+        lineonly, force_run_search_after, override_add_star, negate = overrides()
         if d.just_returned_input_line_content:
             lineonly = True
         if override_add_star:
@@ -139,7 +156,8 @@ def filter_dialog_and_overrides(
         out = prefix + out
         print(f"filter_dialog_and_overrides: out is --{out}--, type ist: --{type(out)}--")
         neg = True if (negate or d.neg) else False
-        return d.sel_keys_list, out, neg, d.run_search_on_exit
+        run_search_on_exit = True if force_run_search_after else d.run_search_on_exit
+        return d.sel_keys_list, out, neg, run_search_on_exit
 
 
 def note_filter_helper(parent, col, remaining_sentence, prefixed_with_minus):
@@ -293,12 +311,12 @@ add some text to limit to a certain term.
         field = field_list[0]
 
     posback = 0
-    field_search_string = emc(field_search_string)
+    field_search_string = escape_metachars(field_search_string)
     if field_search_string:
         field_search_string += ":**"
         posback = -2
     # quote if needed
-    model_search_string = emc(model_search_string)
+    model_search_string = escape_metachars(model_search_string)
     if " " in model_search_string:
         model_search_string = '"' + model_search_string + '"'
     # always quote field search string so that user can type in spaces
@@ -342,10 +360,10 @@ def get_date_range(parent, col, search_operator, before, after, chars_to_del, pr
     if in_full_anki_with_gui:
         test_lower = test_upper = test_custom_datetime = None
     else:
-        # class input is defined in testing code
-        test_lower = input.test_date_lower
-        test_upper = input.test_date_upper
-        test_custom_datetime = input.test_custom_datetime
+        # class testinput is defined in testing code
+        test_lower = testinput.test_date_lower
+        test_upper = testinput.test_date_upper
+        test_custom_datetime = testinput.test_custom_datetime
 
     success, searchtext, TriggerSearchAfter = get_date_range_string(
         parent, col, search_operator, prefixed_with_minus, test_lower, test_upper, test_custom_datetime
@@ -353,9 +371,9 @@ def get_date_range(parent, col, search_operator, before, after, chars_to_del, pr
     if not success:
         return None, None, None
     else:
-        _, override_autosearch_default, _, _ = overrides()
-        if override_autosearch_default:
-            TriggerSearchAfter ^= True
+        _, force_run_search_after, _, _ = overrides()
+        if force_run_search_after:
+            TriggerSearchAfter = True
         spaces = maybe_add_spaced_between(before, chars_to_del)
         remove_these = chars_to_del + 1 if prefixed_with_minus else chars_to_del
         new_text = before[:-remove_these] + spaces + searchtext + after
@@ -467,11 +485,12 @@ def regex_replacements(before, after):
 
 
 def onSearchEditTextChange(
-    parent, move_dialog_in_browser, include_filtered_in_deck, input_text, cursorpos, from_button=False
+    parent, move_dialog_in_browser, include_filtered_in_deck, input_text, cursorpos, from_button=False, test_input=False
 ):
-    """
-    parent: Browser, filtered_deck.FilteredDeckConfigDialog
-    """
+    # parent: Browser, filtered_deck.FilteredDeckConfigDialog
+    global testinput 
+    testinput = test_input
+
     col = parent.col
     TriggerSearchAfter = False
     
@@ -539,8 +558,6 @@ def onSearchEditTextChange(
                                     "tag:hallo" will be inserted the "xx" part must be removed
                                     beforehand
                                     if nothing to remove you must set it to "0".
-            "insert_space_at_pos_in_before": before inserting selected additional search string
-
             "dict_for_dialog": if True use a string that describes it: I use this string for
                             an if-loop after the dialog closes.
             "values_for_filter_dialog": tags(col, True) + decknames(col, include_filtered_in_deck, True),
@@ -552,12 +569,13 @@ def onSearchEditTextChange(
             "show_star": whether the checkbox left from the ok button is SHOWN
             "check_star": whether the checkbox left from the ok button is CHECKED
             "sort_vals": whether vals are sorted alphabetically in the filter dialog
+            "context": needed for remembering window size etc.
+            "operator": used to add operator after filter dialog was closed to re-add it to the terms
         }
         """
 
         vals = {
             "remove_from_end_of_before": int(f"-{remove_from_end}"),
-            "insert_space_at_pos_in_before": 0,
             "dict_for_dialog": False,
             "values_for_filter_dialog": tags(col, True) + decknames(col, include_filtered_in_deck, True),
             "surround_with_quotes": True,
@@ -568,7 +586,9 @@ def onSearchEditTextChange(
             "show_star": False,  # deck: and tag: also match subdecks, * only needed for exclusion: -deck:xyz::*
             "check_star": False,
             "sort_vals": True,
+            "multi_selection_enabled": True,
             "context": "tag_and_deck_xx",
+            "operator": "",
         }
 
     if matches_search_operator(before, "field:") and (
@@ -582,18 +602,19 @@ which doesn't limit your search. You must put your search term between the "**".
         prefixed_with_minus = True if minus_precedes_search_operator(before, "field:") else False
         vals = {
             "remove_from_end_of_before": -7 if prefixed_with_minus else -6,
-            "insert_space_at_pos_in_before": -6,
             "dict_for_dialog": False,
             "values_for_filter_dialog": fieldnames(col),
             "surround_with_quotes": True,
-            "infotext": field_infotext + details_about_searching_fields,
+            "infotext": field_infotext + details_about_searching_fields_string,
             "windowtitle": "Anki: Select field to search",
             "show_prepend_minus_button": True,
             "check_prepend_minus_button": prefixed_with_minus,
             "show_star": True,
             "check_star": False,
             "sort_vals": True,
+            "multi_selection_enabled": True,
             "context": "field",
+            "operator": "field:",
         }
 
     if matches_search_operator(before, "prop:") and (
@@ -602,8 +623,7 @@ which doesn't limit your search. You must put your search term between the "**".
         it = "<b>After closing the dialog you must adjust what's inserted with your numbers</b>"
         prefixed_with_minus = True if minus_precedes_search_operator(before, "prop:") else False
         vals = {
-            "remove_from_end_of_before": -1 if prefixed_with_minus else 0,
-            "insert_space_at_pos_in_before": -5,
+            "remove_from_end_of_before": -6 if prefixed_with_minus else -5,
             "dict_for_dialog": "prop",
             "values_for_filter_dialog": props(),
             "surround_with_quotes": False,
@@ -615,6 +635,7 @@ which doesn't limit your search. You must put your search term between the "**".
             "check_star": False,
             "sort_vals": False,
             "context": "prop",
+            "operator": "prop:",
         }
 
     if matches_search_operator(before, "is:") and (
@@ -623,8 +644,7 @@ which doesn't limit your search. You must put your search term between the "**".
         expl = gc(["open filter dialog after typing these search operators", "modify_is__show_explanations"])
         prefixed_with_minus = True if minus_precedes_search_operator(before, "is:") else False
         vals = {
-            "remove_from_end_of_before": (0 if expl else -3) - (1 if prefixed_with_minus else 0),
-            "insert_space_at_pos_in_before": -3,
+            "remove_from_end_of_before": -4 if prefixed_with_minus else -3,
             "dict_for_dialog": "is_with_explanations" if expl else False,
             "values_for_filter_dialog": is_values_with_explanations() if expl else is_values(),
             "surround_with_quotes": False,
@@ -636,6 +656,7 @@ which doesn't limit your search. You must put your search term between the "**".
             "check_star": False,
             "sort_vals": True,
             "context": "is",
+            "operator": "is:",
         }
 
     if matches_search_operator(before, "flag:") and (
@@ -643,8 +664,7 @@ which doesn't limit your search. You must put your search term between the "**".
     ):
         prefixed_with_minus = True if minus_precedes_search_operator(before, "flag:") else False
         vals = {
-            "remove_from_end_of_before": -1 if prefixed_with_minus else 0,
-            "insert_space_at_pos_in_before": -5,
+            "remove_from_end_of_before": -6 if prefixed_with_minus else -5,
             "dict_for_dialog": "flags",
             "values_for_filter_dialog": {
                 "red": "1",
@@ -663,7 +683,9 @@ which doesn't limit your search. You must put your search term between the "**".
             "show_star": False,
             "check_star": False,
             "sort_vals": True,
+            "multi_selection_enabled": True,
             "context": "flag",
+            "operator": "flag:",
         }
 
     tag_search = matches_search_operator(before, "tag:") and (
@@ -672,8 +694,7 @@ which doesn't limit your search. You must put your search term between the "**".
     if tag_search:
         prefixed_with_minus = True if minus_precedes_search_operator(before, "tag:") else False
         vals = {
-            "remove_from_end_of_before": -1 if prefixed_with_minus else 0,
-            "insert_space_at_pos_in_before": -4,
+            "remove_from_end_of_before": -5 if prefixed_with_minus else -4,
             "dict_for_dialog": False,
             "values_for_filter_dialog": tags(col),
             "surround_with_quotes": False,
@@ -686,6 +707,7 @@ which doesn't limit your search. You must put your search term between the "**".
             "sort_vals": True,
             "multi_selection_enabled": True,
             "context": "tag",
+            "operator": "tag:",
         }
 
     elif matches_search_operator(before, "note:") and (
@@ -693,8 +715,7 @@ which doesn't limit your search. You must put your search term between the "**".
     ):
         prefixed_with_minus = True if minus_precedes_search_operator(before, "note:") else False
         vals = {
-            "remove_from_end_of_before": -1 if prefixed_with_minus else 0,
-            "insert_space_at_pos_in_before": -5,
+            "remove_from_end_of_before": -6 if prefixed_with_minus else -5,
             "dict_for_dialog": False,
             "values_for_filter_dialog": col.models.allNames(),
             "surround_with_quotes": True,
@@ -705,7 +726,9 @@ which doesn't limit your search. You must put your search term between the "**".
             "show_star": False,
             "check_star": False,
             "sort_vals": True,
+            "multi_selection_enabled": True,
             "context": "note",
+            "operator": "note:",
         }
 
     elif matches_search_operator(before, "card:") and (
@@ -713,8 +736,7 @@ which doesn't limit your search. You must put your search term between the "**".
     ):
         prefixed_with_minus = True if minus_precedes_search_operator(before, "card:") else False
         vals = {
-            "remove_from_end_of_before": -1 if prefixed_with_minus else 0,
-            "insert_space_at_pos_in_before": -5,
+            "remove_from_end_of_before": -6 if prefixed_with_minus else -5,
             "dict_for_dialog": False,
             "values_for_filter_dialog": cardnames(col),
             "surround_with_quotes": True,
@@ -725,7 +747,9 @@ which doesn't limit your search. You must put your search term between the "**".
             "show_star": False,
             "check_star": False,
             "sort_vals": True,
+            "multi_selection_enabled": True,
             "context": "card",
+            "operator": "card:",
         }
 
     elif matches_search_operator(before, "cfn:"):  # cards from note
@@ -740,8 +764,7 @@ which doesn't limit your search. You must put your search term between the "**".
 
         prefixed_with_minus = True if minus_precedes_search_operator(before, "cfn:") else False
         vals = {
-            "remove_from_end_of_before": -1 if prefixed_with_minus else 0,
-            "insert_space_at_pos_in_before": -4,
+            "remove_from_end_of_before": -5 if prefixed_with_minus else -4,
             "dict_for_dialog": "cfn",
             "values_for_filter_dialog": cardnames_modelname_dict(),
             "surround_with_quotes": True,
@@ -754,6 +777,7 @@ which doesn't limit your search. You must put your search term between the "**".
             "check_star": False,
             "sort_vals": True,
             "context": "card_from_note_cfn",
+            "operator": "",
         }
 
     if matches_search_operator(before, "ffn:"):
@@ -774,12 +798,11 @@ which doesn't limit your search. You must put your search term between the "**".
 
         prefixed_with_minus = True if minus_precedes_search_operator(before, "ffn:") else False
         vals = {
-            "remove_from_end_of_before": -1 if prefixed_with_minus else 0,
-            "insert_space_at_pos_in_before": -4,
+            "remove_from_end_of_before": -5 if prefixed_with_minus else -4,
             "dict_for_dialog": "ffn",
             "values_for_filter_dialog": fieldnames_modelname_dict(),
             "surround_with_quotes": True,
-            "infotext": ffn_infotext + details_about_searching_fields,
+            "infotext": ffn_infotext + details_about_searching_fields_string,
             "windowtitle": "Anki: Select Field to search from selected Note Type",
             "show_prepend_minus_button": False,
             "check_prepend_minus_button": prefixed_with_minus,
@@ -787,6 +810,7 @@ which doesn't limit your search. You must put your search term between the "**".
             "check_star": False,
             "sort_vals": True,
             "context": "field_from_note_ffn",
+            "operator": "",
         }
 
     elif matches_search_operator(before, "deck:") and gc(
@@ -794,8 +818,7 @@ which doesn't limit your search. You must put your search term between the "**".
     ):
         prefixed_with_minus = True if minus_precedes_search_operator(before, "deck:") else False
         vals = {
-            "remove_from_end_of_before": -1 if prefixed_with_minus else 0,
-            "insert_space_at_pos_in_before": -5,
+            "remove_from_end_of_before": -6 if prefixed_with_minus else -5,
             "dict_for_dialog": False,
             "values_for_filter_dialog": decknames(col, include_filtered_in_deck),
             "surround_with_quotes": True,
@@ -806,8 +829,9 @@ which doesn't limit your search. You must put your search term between the "**".
             "show_star": False,  # deck also match subdecks, * only needed for exclusion: -deck:xyz::*
             "check_star": False,
             "sort_vals": True,
-            "multi_selection_enabled": vals.get("multi_selection_enabled"),
+            "multi_selection_enabled": True,
             "context": "deck",
+            "operator": "deck:",
         }
 
     if not vals:
@@ -827,6 +851,7 @@ which doesn't limit your search. You must put your search term between the "**".
         sort_vals=vals["sort_vals"],
         multi_selection_enabled=vals.get("multi_selection_enabled"),
         context=vals.get("context"),
+        dict_for_dialog=vals["dict_for_dialog"]
     )
     if not d:
         return None, None, None
@@ -834,80 +859,87 @@ which doesn't limit your search. You must put your search term between the "**".
         if d.tooltip_after_exit_for_parent:
             tooltip(d.tooltip_after_exit_for_parent, period=6000)
 
-        just_returned_input_line_content, override_autosearch_default, override_add_star, negate = overrides()
+        just_returned_input_line_content, force_run_search_after, override_add_star, negate = overrides()
         if d.just_returned_input_line_content:
             just_returned_input_line_content = True
         TriggerSearchAfter = d.run_search_on_exit
-        # if override_autosearch_default:
-        #     TriggerSearchAfter ^= True
+        if force_run_search_after:
+            TriggerSearchAfter = True
         # print(f"d.sel_keys_list is {d.sel_keys_list}")
         # print(f"d.inputline is {d.inputline}")
         # print(f"d.sel_value_from_dict is {d.sel_value_from_dict}")
+        # print(f"d.dict_for_dialog is {d.dict_for_dialog}")
         # print(f"just_returned_input_line_content is {just_returned_input_line_content}")
 
         is_exclusion = any([d.neg, negate])
+        # print(f"is_exclusion is --{is_exclusion}")
 
+        # I always remove the search term operator fully, re-add it later
         if vals["remove_from_end_of_before"] != 0:
             befmod = before[: vals["remove_from_end_of_before"]]
         else:  # equal to   vals["remove_from_end_of_before"] == 0    or    not vals["remove_from_end_of_before"]
             befmod = before
+        # print(f"before is --{before}--")
+        # print(f"YYbefmod is --{befmod}--")
 
         ############ return for some special dialogs:
-        if vals["dict_for_dialog"] == "cfn":
+        if d.dict_for_dialog == "cfn":
             mycard = d.sel_value_from_dict[0]
             mynote = d.sel_value_from_dict[1]
-            mysearch = f"""("card:{emc(mycard)}" and "note:{emc(mynote)}")"""
-            already_in_line = befmod[:-4]  # substract cfn:
-            is_exclusion = False  # - doesn't really make sense here
-            new_text = already_in_line + ("-" if is_exclusion else "") + mysearch + after
-            new_pos = len(already_in_line + ("-" if is_exclusion else "") + mysearch)
+            if is_exclusion:  # doesn't really make sense here
+                mysearch = f'''-("card:{escape_metachars(mycard)}" "note:{escape_metachars(mynote)}")'''
+            else:
+                mysearch = f'''"card:{escape_metachars(mycard)}" "note:{escape_metachars(mynote)}"'''          
+            new_text = befmod + mysearch + after
+            new_pos = len(befmod + mysearch)
             return new_text, new_pos, TriggerSearchAfter
-        if vals["dict_for_dialog"] == "ffn":
+        if d.dict_for_dialog == "ffn":
             field = d.sel_value_from_dict[0]
             mynote = d.sel_value_from_dict[1]
-            mysearch = f'''"note:{emc(mynote)}" "{emc(field)}:**"'''
-            already_in_line = befmod[:-4]  # substract ffn:
-            is_exclusion = False  # - doesn't really make sense here
-            new_text = already_in_line + ("-" if is_exclusion else "") + mysearch + after
-            new_pos = (
-                len(already_in_line + ("-" if is_exclusion else "") + mysearch) - 2
-            )  # -2 I need to go back 2 for *"
+            if is_exclusion: # - doesn't really make sense here
+                mysearch = f'''-("note:{escape_metachars(mynote)}" "{escape_metachars(field)}:**")'''
+            else:
+                mysearch = f'''"note:{escape_metachars(mynote)}" "{escape_metachars(field)}:**"'''           
+            new_text = befmod + mysearch + after
+            cursor_adj = 3 if is_exclusion else 2
+            new_pos = len(befmod + mysearch) - cursor_adj  # -2/-3 I need to go back 2/3 for *"
             return (
                 new_text,
                 new_pos,
                 False,
             )  # triggering a search makes no sense here: the user needs to fill in the search term for the field
-        elif vals["dict_for_dialog"] == "is_with_explanations":
-            already_in_line = befmod[:-3]  # substract is:
-            new_text = already_in_line + ("-" if is_exclusion else "") + d.sel_value_from_dict + after
-            new_pos = len(already_in_line + ("-" if is_exclusion else "") + d.sel_value_from_dict)
+        elif d.dict_for_dialog == "is_with_explanations":
+            new_text = befmod + ("-" if is_exclusion else "") + d.sel_value_from_dict + after
+            new_pos = len(befmod + ("-" if is_exclusion else "") + d.sel_value_from_dict)
             return (
                 new_text,
                 new_pos,
                 False,
             )  # triggering a search makes no sense here: the user needs to fill in the search term for is:
-        elif vals["dict_for_dialog"] == "prop":
-            already_in_line = befmod[:-5]  # substract prop:
-            new_text = already_in_line + ("-" if is_exclusion else "") + d.sel_value_from_dict + after
-            new_pos = len(already_in_line + ("-" if is_exclusion else "") + d.sel_value_from_dict)
+        elif d.dict_for_dialog == "prop":
+            new_text = befmod + ("-" if is_exclusion else "") + d.sel_value_from_dict + after
+            new_pos = len(befmod + ("-" if is_exclusion else "") + d.sel_value_from_dict)
             return (
                 new_text,
                 new_pos,
                 False,
             )  # triggering a search makes no sense here: the user needs to fill in the search term for prop:
 
+
         ############ generate sel_list
-        if vals["dict_for_dialog"] == "flags":
-            sel_list = [d.sel_value_from_dict]
+        if d.dict_for_dialog == "flags":
+            sel_list = [str(d.sel_value_from_dict)]
 
         if just_returned_input_line_content:
             # if do_tag_deck_search: maybe add tag or deck??? BUT if the user wanted this then they wouldn't have chosen only_input_line ...
             sel_list = [d.inputline]
 
         # if list is returned, escape some characters and store if the terms need quoting
-        # vals["dict_for_dialog"]: UseFilterDialogValue: if values tuple with info - list as input -> False
-        if not vals["dict_for_dialog"]:
-            sel_list = [emc(e) for e in d.sel_keys_list]
+        # d.dict_for_dialog: UseFilterDialogValue: if values tuple with info - list as input -> False
+        if not d.dict_for_dialog:
+             #print(f"d.sel_keys_list is --{d.sel_keys_list}")
+            sel_list = [escape_metachars(e) for e in d.sel_keys_list]
+            # print(f"sel_list is --{sel_list}--")
             chars_that_needs_quoting = ["(", ")"]
             if tag_search:
                 for c in chars_that_needs_quoting:
@@ -915,13 +947,13 @@ which doesn't limit your search. You must put your search term between the "**".
                         if c in element:
                             vals["surround_with_quotes"] = True
                             break
-
+        
+        # print(f"sel_list is --{sel_list}--")
         ############ maybe add '*' to match other deeper nested hierarchical tags, also handle tag/deck multiple matches
-        join_list_with = " "
         for idx, member in enumerate(sel_list):
             if member in ["none", "filtered", "tag:none", "deck:filtered", "re:"]:
                 pass
-            elif before[-4:] == "tag:":
+            elif vals["operator"] == "tag:":
                 # no star at the end needed:
                 #   since at least 2.1.50 (and in 2024-03):
                 #   e.g. you have tags ab ab::yz
@@ -929,26 +961,21 @@ which doesn't limit your search. You must put your search term between the "**".
                 #   the star is only needed to match partial tags e.g. tag:a*
                 #   -> my dialog always matches full tags so I never need the star
                 #   to match a tag without subtags you'd type:  tag:ab -tag:ab::*
-                befmod = befmod[:-4]  # prevent next line from creating "tag:tag:" for first element
-                join_list_with = " OR " if is_exclusion else " OR "
-                member = f"tag:{member}"
-            # in 2.1.24 card: and note: can also use *
-            elif before[-5:] == "card:":
+                pass
+            # since 2.1.24 card: and note: can also use *
+            elif vals["operator"] == "card:":
                 if d.addstar and not override_add_star:
                     member = member + "*"
-            elif before[-5:] == "note:":
+            elif vals["operator"] == "note:":
                 if d.addstar and not override_add_star:
                     member = member + "*"
-            elif before[-5:] == "deck:" and gc(
+            elif vals["operator"] == "deck:" and gc(
                 ["open filter dialog after typing these search operators", "modify_deck"]
             ):
                 if d.addstar and not override_add_star:
                     member = member + "*"
-                join_list_with = " " if is_exclusion else " OR "
-                befmod = befmod[:-5]  # prevent next line from creating "deck:deck:" for first element
-                member = f"deck:{member}"
-            elif before[-6:] == "field:":
-                member = member + "**"
+            elif vals["operator"] == "field:":
+                member = member + ":**"
             # ugly fix for xx etc.
             elif do_tag_deck_search:
                 if d.addstar and not override_add_star:
@@ -956,194 +983,58 @@ which doesn't limit your search. You must put your search term between the "**".
             sel_list[idx] = member
 
         ############ surround terms with quotes
+        # print(f'vals["surround_with_quotes"] is --{vals["surround_with_quotes"]}--')
+        # print(f"sel_list is --{sel_list}--")
         if vals["surround_with_quotes"]:
-            sel_list = ['"' + e + '"' for e in sel_list]
+            new_list = []
+            for e in sel_list:
+                # tag:\*a\_\(a   gets rewritten to   "tag:\*a\_(a"
+                needs_quoting = any([c in e for c in chars_that_needs_quoting if not f"\\{c}" in e])
+                needs_quoting = True if (" " in e) else needs_quoting  # "\ " doesn't work, space needs quoting in decknames
+                new = '"' + e + '"' if needs_quoting else e
+                new_list.append(new)
+            sel_list = new_list
 
-        ############ exclusion multiple should be grouped
-        merged = join_list_with.join(sel_list)  # at the moment
-        if is_exclusion:
-            if len(sel_list) > 1:
-                merged = f"-({merged})"
+        # print('dddddddddddddddd')
+        # print(sel_list)
+        # print(type((sel_list)))
+        ############ merge and exclusion
+
+        merged = "(" if (not is_exclusion and len(sel_list) > 1) else ""
+        maybe_minus = "-" if is_exclusion else ""
+        connector = " " if is_exclusion else " OR "
+        for e in sel_list:
+            if vals["operator"] == "field:":
+                merged += f'{maybe_minus}{e}{connector}'
             else:
-                merged = f"-{merged}"
+                merged += f'{maybe_minus}{vals["operator"]}{e}{connector}'
+        if not is_exclusion:    
+            merged = merged[:-4]   # remove final ' OR '
+            if len(sel_list) > 1:
+                merged += ")"
+
+        merged = merged.rstrip()  # strip trailing spaces
+
+        # quick workaround for "
+        merged = merged.replace('deck:"', '"deck:')
+        merged = merged.replace('note:"', '"note:')
+        merged = merged.replace('tag:"', '"tag:')
+        merged = merged.replace('card:"', '"card:')
+
+        # print('zzzzzzzzzzzzzzzzzzz')
+        # print(befmod)
+        # print(merged)
+        # print(after)
         new_text = befmod + merged + after
         newpos = len(befmod + merged)
+        if vals["operator"] == "field:":
+            if merged.endswith('")'):
+                move_left = 3
+            elif merged.endswith((")", '"')):
+                move_left = 2
+            else:
+                move_left = 1
+            newpos -= move_left  # move cursor between **
         return new_text, newpos, TriggerSearchAfter
 
 
-if not in_full_anki_with_gui:
-    # if not __name__.startswith("1052724801"):
-    # if __name__ == "__main__" doesn't work with relative imports outside of a module
-    # To run this code/file outside of anki:
-    #     1. set cwd to addon repo
-    #     2. python3 -m src.onTextChange "collection_path"
-    # see e.g. https://stackoverflow.com/questions/16981921/relative-imports-in-python-3
-    # to load the collection without the gui, see: https://addon-docs.ankiweb.net/command-line-use.html
-
-    # this add-on has three error-prone parts:
-    #    1. the matching inside the filter_dialog with filter_dialog.process_search_string_withStart
-    #    2. how the date string is generated for upper and lower dates from dialog__date.date_range_string_from_upper_and_lower
-    #    3. if onSearchEditTextChange from this file works correctly (assuming what 1 and 2 return are correct)
-    #       here you can test 2 implicitly by running it with "dadded:" and so on.
-
-    # instead of learning about gui testing (@mock.patch decorator?) or completly rewriting this file so that I have smaller/more specialized functions
-    # I minimally refactored the code so that gui dialog inputs are hidden behind these functions:
-    #   onTextChange.get_filter_dialog_output
-    #   onTextChange.get_date_range in combination with dialog_date.get_date_range_string
-    # When I'm running outside the regular gui-anki these functions get the output of the gui dialogs from the variable input that
-    # references a class that I define below
-
-    import datetime
-    import dataclasses
-    import sys
-
-    # override some functions:
-    def tooltip(text, parent=None, period=3000):
-        print(text)
-
-    def overrides():
-        lineonly = False
-        override_autosearch_default = False
-        override_add_star = False
-        negate = False
-        return lineonly, override_autosearch_default, override_add_star, negate
-
-    @dataclasses.dataclass
-    class Input:
-        input_text: str = ""
-        cursorpos: int = 0
-        test_output_key_list: list = dataclasses.field(
-            default_factory=list
-        )  # for dnf/dnc that use two dialogs nested list
-        test_output_sel_value_from_dict: dict = dataclasses.field(default_factory=dict)
-        test_manual_override_in_dialog_for_neg: bool = False
-        test_manual_override_in_dialog_for_star: bool = False
-        test_manual_regular_accept: bool = False
-        test_manual_just_line: bool = False
-        test_date_lower: int | None = None
-        test_date_upper: int | None = None
-        test_custom_datetime: datetime.datetime | None = None
-
-    test_cases = [
-        [
-            Input(
-                input_text="-tag:",
-                cursorpos=len("-tag:"),
-                test_output_key_list=["aa", "bb"],
-                test_output_sel_value_from_dict=None,
-                test_manual_override_in_dialog_for_neg=False,
-                test_manual_override_in_dialog_for_star=False,
-                test_manual_regular_accept=True,
-                test_manual_just_line=False,
-                test_date_lower=None,
-                test_date_upper=None,
-                test_custom_datetime=None,
-            ),
-            # new_text, newpos, TriggerSearchAfter
-            ["-(tag:aa OR tag:bb)", 19, True],
-        ],
-        [
-            Input(
-                input_text="tag:",
-                cursorpos=len("tag:"),
-                test_output_key_list=["!My_Tags::Jacob::!Expansion::Step_01::#NBME::24"],
-                test_output_sel_value_from_dict=None,
-                test_manual_override_in_dialog_for_neg=False,
-                test_manual_override_in_dialog_for_star=False,
-                test_manual_regular_accept=True,
-                test_manual_just_line=False,
-                test_date_lower=None,
-                test_date_upper=None,
-                test_custom_datetime=None,
-            ),
-            # new_text, newpos, TriggerSearchAfter
-            [
-                "tag:!My\_Tags::Jacob::!Expansion::Step\_01::#NBME::24",
-                len("tag:!My\_Tags::Jacob::!Expansion::Step\_01::#NBME::24"),
-                True,
-            ],
-        ],
-        [
-            Input(
-                input_text="ffn:",
-                cursorpos=len("ffn:"),
-                test_output_key_list=None,
-                test_output_sel_value_from_dict=("Back", "Basic"),
-                test_manual_override_in_dialog_for_neg=False,
-                test_manual_override_in_dialog_for_star=False,
-                test_manual_regular_accept=True,
-                test_manual_just_line=False,
-                test_date_lower=None,
-                test_date_upper=None,
-                test_custom_datetime=None,
-            ),
-            # new_text, newpos, TriggerSearchAfter
-            ['"note:Basic" "Back:**"', len('"note:Basic" "Back:**"') - 2, False],
-        ],
-        [
-            Input(
-                input_text="dadded:",
-                cursorpos=len("dadded:"),
-                test_output_key_list=None,
-                test_output_sel_value_from_dict=None,
-                test_manual_override_in_dialog_for_neg=False,
-                test_manual_override_in_dialog_for_star=False,
-                test_manual_regular_accept=True,
-                test_manual_just_line=False,
-                test_date_lower=5,
-                test_date_upper=4,
-                test_custom_datetime=None,
-            ),
-            # new_text, newpos, TriggerSearchAfter
-            ["added:5 -added:3", len("added:5 -added:3"), True],
-        ],
-        [
-            Input(
-                input_text="dnf:",
-                cursorpos=len("dnf:"),
-                test_output_key_list=[["Basic"], ["Back"]],
-                test_output_sel_value_from_dict=None,
-                test_manual_override_in_dialog_for_neg=False,
-                test_manual_override_in_dialog_for_star=False,
-                test_manual_regular_accept=True,
-                test_manual_just_line=False,
-                test_date_lower=5,
-                test_date_upper=4,
-                test_custom_datetime=None,
-            ),
-            # new_text, newpos, TriggerSearchAfter
-            ['note:Basic "Front:**"', len('note:Basic "Front:**"'), False],
-        ],
-    ]
-
-    from anki.collection import Collection
-
-    col = Collection(sys.argv[1])
-    parent = Object()
-    parent.col = col
-    if not isinstance(col, Collection):
-        print("error on loading the collection. Aborting ...")
-        sys.exit()
-
-    test_count = 0
-    for input, expected_output in test_cases:
-        input.counter = 0
-        newtext, newpos, triggersearch = onSearchEditTextChange(
-            parent=parent,
-            move_dialog_in_browser=False,
-            include_filtered_in_deck=True,
-            input_text=input.input_text,
-            cursorpos=input.cursorpos,
-            from_button=True,
-        )
-        print(
-            f"\n\n\nrunning test {test_count} for ||{input.input_text}|| and filter dialog output||{input.test_output_key_list if input.test_output_key_list else input.test_output_sel_value_from_dict}|| ..."
-        )
-        test_count += 1
-        for idx, elem in enumerate([newtext, newpos, triggersearch]):
-            if elem == expected_output[idx]:
-                print(f'        {["newtext", "newpos", "triggersearch"][idx]}✓')
-            else:
-                print("\nERROR")
-                print(f"   ||{elem}||")
-                print(f"   ||{expected_output[idx]}||")

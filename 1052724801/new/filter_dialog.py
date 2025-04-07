@@ -188,13 +188,13 @@ class FilterDialog(QDialog):
             [
                 gc(["filter dialog", "filter dialog: allow multiple selections (only in some dialogs)"]),
                 self.multi_selection_enabled,
-                not self.dict,
+                not self.dict,  # TODO fix this limitation
             ]
         ):
             self.list_widget.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         if gc(["filter dialog", "filter dialog: highlight matches in list"]):
-            self._delegate = HighlightDelegate(self.list_widget)
-            self.list_widget.setItemDelegate(self._delegate)
+            self.delegate = HighlightDelegate(self.list_widget)
+            self.list_widget.setItemDelegate(self.delegate)
         for i in range(self.max_items):
             self.list_widget.insertItem(i, "")
         if self.info_text_top:
@@ -358,7 +358,7 @@ class FilterDialog(QDialog):
                 self.input_line.text(), self.endswith_sign, self.exclude_sign, self.startswith_sign
             )
             terms = [item[3] for item in term_tuples if item[0]]
-            self._delegate.setFilters(terms)
+            self.delegate.setFilters(terms)
             self.list_widget.viewport().update()
         self.maybe_show_warning_about_hidden_tags()
 

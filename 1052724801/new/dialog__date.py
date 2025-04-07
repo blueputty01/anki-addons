@@ -1,7 +1,9 @@
 import datetime
 
-from .config import gc, wcs
 from . import in_full_anki_with_gui
+if in_full_anki_with_gui:
+    from .config import gc, wcs
+
 
 if in_full_anki_with_gui:
     from aqt import mw
@@ -66,7 +68,7 @@ def get_date_range_string(
 def today_as_datetime_adjusted_for_next_day_starts_at(col, today):
     # dayOffset - next day starts at
     # in 2.1.14 values can be between 0 and 23, no negative values
-    if col.schedVer() == 2:
+    if col.sched_ver() == 2:
         day_offset = col.conf.get("rollover", 4)
     else:
         # https://github.com/ankidroid/Anki-Android/wiki/Database-Structure
