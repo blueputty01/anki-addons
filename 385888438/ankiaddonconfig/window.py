@@ -17,6 +17,7 @@ QT6 = QT_VERSION_STR.split(".")[0] == "6"
 class ConfigWindow(QDialog):
     def __init__(self, conf: "ConfigManager") -> None:
         QDialog.__init__(self, mw, Qt.WindowType.Window)  # type: ignore
+        self.setModal(True)
         self.conf = conf
         self.mgr = mw.addonManager
         self.widget_updates: List[Callable[[], None]] = []
@@ -26,7 +27,6 @@ class ConfigWindow(QDialog):
         self.geom_key = f"addonconfig-{conf.addon_name}"
 
         self.setWindowTitle(f"Config for {conf.addon_name}")
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setup()
 
     def setup(self) -> None:
@@ -44,7 +44,6 @@ class ConfigWindow(QDialog):
         self.setup_buttons(self.btn_layout)
 
     def setup_buttons(self, btn_box: "ConfigLayout") -> None:
-
         self.advanced_btn = QPushButton("Advanced")
         self.advanced_btn.clicked.connect(self.on_advanced)
         btn_box.addWidget(self.advanced_btn)
@@ -209,7 +208,7 @@ class ConfigLayout(QBoxLayout):
         checkbox.stateChanged.connect(
             lambda s: self.conf.set(
                 key,
-                s == (Qt.CheckState.Checked.value if QT6 else Qt.CheckState.Checked), # type: ignore
+                s == (Qt.CheckState.Checked.value if QT6 else Qt.CheckState.Checked),  # type: ignore
             )
         )
         self.addWidget(checkbox)
